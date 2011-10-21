@@ -36,16 +36,48 @@ class BindFile:
     retry = 3600
     expire = 604800
     min = 1800
+    header_options = ['$TTL 3600']
+    default_placeholder = "IN PTR unused-10-8-0-%i.phx.mozilla.com."
+    entry_list = []
+    _entry_output = ""
+    ##Merge list will be a list of dictionary objects. The dictionary will be structured as follows {'index':0,'entry':'hostname entry as to overwrite the default'}
+    merge_list = []
     def __init__(self):
-        pass
-    def generate_file(self):
+        self._header_text = ""
+        self._declaration_text = ""
+
+    def generate_file(self, output=False):
         self._generate_header()
+        self._generate_declaration()
+        self._build_entry_list()
+        self._merge_lists()
+        self._output_entry_list()
+
+        if output is True:
+            print self._header_text
+            print self._declaration_text
+            print self._entry_output
+    def _merge_lists(self):
+        if len(self.merge_list) > 0:
+            for line in self.merge_list:
+                self.entry_list[line['index']] = line['entry']
 
     def _generate_header(self):
-        pass
+        self._header_text = "\n".join(self.header_options)
+        self._header_text += "\n"
 
-    def _generate_serial(self):
-        pass
+    def _generate_declaration(self):
+        self._declaration_text = "%s %s SOA %s (\n\t%s\n\t%i\n\t%i\n\t%i\n\t%i\n) IN NS %s" % (self.name, self.file_class, self.soa, self.serial, self.refresh, self.retry, self.expire, self.min, "\nIN NS ".join(self.nameservers) )
+
+    def _build_entry_list(self):
+        for i in range(0,256):
+            self.entry_list.append(self.default_placeholder % i)
+
+    def _output_entry_list(self):
+        counter = 0
+        for i in self.entry_list:
+            self._entry_output += "%i %s\n" % (counter, i)
+            counter += 1
 
     @property
     def _date_stamp(self):

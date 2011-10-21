@@ -46,7 +46,6 @@ class BindFileTest(unittest.TestCase):
         bf = BindFile() 
         self.assertEqual(bf.name, "@")
 
-
     def test_get_date_stamp(self):
         bf = BindFile() 
         self.assertEqual(bf._date_stamp, datetime.date.today().strftime('%Y%m%d'))
@@ -59,7 +58,6 @@ class BindFileTest(unittest.TestCase):
         bf = BindFile() 
         self.assertEqual(bf.increment_serial(2000102100), 2011102100)
 
-
     def test_increment_serial_more_than_10(self):
         bf = BindFile() 
         self.assertEqual(bf.increment_serial(2011102111), 2011102112)
@@ -71,3 +69,33 @@ class BindFileTest(unittest.TestCase):
     def test_increment_serial_00(self):
         bf = BindFile() 
         self.assertEqual(bf.increment_serial(2011102100), 2011102101)
+
+    def test_generate_header(self):
+        bf = BindFile() 
+        bf.generate_file()
+        self.assertEqual(bf._header_text,"$TTL 3600\n")
+
+    def test_generate_default_declaration(self):
+        bf = BindFile() 
+        bf.generate_file()
+        self.assertEqual(bf._declaration_text,"@ IN SOA ns.mozilla.org. sysadmins.mozilla.org. (\n\t2011102100\n\t10800\n\t3600\n\t604800\n\t1800\n) IN NS ns.mozilla.org.")
+
+    def test_generate_updated_retry_declaration(self):
+        bf = BindFile() 
+        bf.refresh = 99999
+        bf.generate_file()
+        self.assertEqual(bf._declaration_text,"@ IN SOA ns.mozilla.org. sysadmins.mozilla.org. (\n\t2011102100\n\t99999\n\t3600\n\t604800\n\t1800\n) IN NS ns.mozilla.org.")
+
+    def test_entry_list(self):
+        bf = BindFile() 
+        bf._build_entry_list()
+        self.assertEqual(len(bf.entry_list), 256)
+        self.assertEqual(bf.entry_list[0],"IN PTR unused-10-8-0-0.phx.mozilla.com.")
+        self.assertEqual(bf.entry_list[-1],"IN PTR unused-10-8-0-255.phx.mozilla.com.")
+
+    def test_output(self):
+        bf = BindFile() 
+        bf.merge_list.append({'index':1, 'entry':'foo.bar.mozilla.com'})
+        bf.generate_file()
+        self.assertEqual(bf.entry_list[0], 'foo.bar.mozilla.com')
+        self.assertEqual(bf.entry_list[1], 'IN PTR unused-10-8-0-1.phx.mozilla.com.')
