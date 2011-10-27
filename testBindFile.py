@@ -32,70 +32,91 @@ import datetime, time
 class BindFileTest(unittest.TestCase):
 
     def setUp(self):
-        pass
+        self.bf = BindFile()
+
+    def tearDown(self):
+        self.bf = None
 
     def test_initial(self):
-        bf = BindFile() 
-        self.assertNotEqual(bf, None)
+        self.assertNotEqual(self.bf, None)
 
     def test_initial_serial(self):
-        bf = BindFile() 
-        self.assertEqual(bf.serial, bf.default_serial)
+        self.assertEqual(self.bf.serial, self.bf.default_serial)
 
     def test_initial_name(self):
-        bf = BindFile() 
-        self.assertEqual(bf.name, "@")
+        self.assertEqual(self.bf.name, "@")
 
     def test_get_date_stamp(self):
-        bf = BindFile() 
-        self.assertEqual(bf._date_stamp, datetime.date.today().strftime('%Y%m%d'))
+        self.assertEqual(self.bf._date_stamp, datetime.date.today().strftime('%Y%m%d'))
 
     def test_get_default_serial(self):
-        bf = BindFile() 
-        self.assertEqual(bf.default_serial, "%s%s" %(datetime.date.today().strftime('%Y%m%d'), "00") )
+        self.assertEqual(self.bf.default_serial, "%s%s" %(datetime.date.today().strftime('%Y%m%d'), "00") )
     
     def test_increment_serial(self):
-        bf = BindFile() 
-        self.assertEqual(bf.increment_serial(2000102100), 2011102100)
+        self.assertEqual(self.bf.increment_serial(2000102100), int("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "00")) )
 
     def test_increment_serial_more_than_10(self):
-        bf = BindFile() 
-        self.assertEqual(bf.increment_serial(2011102111), 2011102112)
+        self.assertEqual(self.bf.increment_serial("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "11")), int("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "12")) )
 
     def test_increment_serial_less_than_10(self):
-        bf = BindFile() 
-        self.assertEqual(bf.increment_serial(2011102101), 2011102102)
+        self.assertEqual(self.bf.increment_serial("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "01")), int("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "02")) )
 
     def test_increment_serial_00(self):
-        bf = BindFile() 
-        self.assertEqual(bf.increment_serial(2011102100), 2011102101)
+        self.assertEqual(self.bf.increment_serial("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "00")), int("%s%s" %(datetime.date.today().strftime('%Y%m%d'), "01")) )
 
     def test_generate_header(self):
-        bf = BindFile() 
-        bf.generate_file()
-        self.assertEqual(bf._header_text,"$TTL 3600\n")
+        self.bf.generate_file()
+        self.assertEqual(self.bf._header_text,"$TTL 3600\n")
 
     def test_generate_default_declaration(self):
-        bf = BindFile() 
-        bf.generate_file()
-        self.assertEqual(bf._declaration_text,"@ IN SOA ns.mozilla.org. sysadmins.mozilla.org. (\n\t2011102100\n\t10800\n\t3600\n\t604800\n\t1800\n) IN NS ns.mozilla.org.")
+        self.bf.generate_file()
+        self.assertEqual(self.bf._declaration_text,"@ IN SOA ns1.mozilla.com. ns2.mozilla.com. (\n\t%s%s\n\t10800\n\t3600\n\t604800\n\t1800\n) IN NS ns1.mozilla.com." % (datetime.date.today().strftime('%Y%m%d'), "00") )
 
     def test_generate_updated_retry_declaration(self):
-        bf = BindFile() 
-        bf.refresh = 99999
-        bf.generate_file()
-        self.assertEqual(bf._declaration_text,"@ IN SOA ns.mozilla.org. sysadmins.mozilla.org. (\n\t2011102100\n\t99999\n\t3600\n\t604800\n\t1800\n) IN NS ns.mozilla.org.")
+        self.bf.refresh = 99999
+        self.bf.generate_file()
+        self.assertEqual(self.bf._declaration_text,"@ IN SOA ns1.mozilla.com. ns2.mozilla.com. (\n\t%s%s\n\t99999\n\t3600\n\t604800\n\t1800\n) IN NS ns1.mozilla.com." % (datetime.date.today().strftime('%Y%m%d'), "00") )
 
     def test_entry_list(self):
-        bf = BindFile() 
-        bf._build_entry_list()
-        self.assertEqual(len(bf.entry_list), 256)
-        self.assertEqual(bf.entry_list[0],"IN PTR unused-10-8-0-0.phx.mozilla.com.")
-        self.assertEqual(bf.entry_list[-1],"IN PTR unused-10-8-0-255.phx.mozilla.com.")
+        self.bf.generate_file()
+        self.assertEqual(len(self.bf.entry_list), 256)
+        self.assertEqual(self.bf.entry_list[0],"IN PTR unused-10-8-0-0.phx.mozilla.com.")
+        self.assertEqual(self.bf.entry_list[-1],"IN PTR unused-10-8-0-255.phx.mozilla.com.")
 
-    def test_output(self):
-        bf = BindFile() 
-        bf.merge_list.append({'index':1, 'entry':'foo.bar.mozilla.com'})
-        bf.generate_file()
-        self.assertEqual(bf.entry_list[0], 'foo.bar.mozilla.com')
-        self.assertEqual(bf.entry_list[1], 'IN PTR unused-10-8-0-1.phx.mozilla.com.')
+    """def test_merge(self):
+        self.bf.merge_list.append({'index':0, 'entry':'IN PTR foo.bar.mozilla.com'})
+        self.bf.generate_file()
+        self.assertEqual(self.bf.entry_list[0], 'IN PTR foo.bar.mozilla.com')
+        self.assertEqual(self.bf.entry_list[1], 'IN PTR unused-10-8-0-1.phx.mozilla.com.')"""
+
+    def test_set_entry(self):
+        self.bf.generate_file()
+        self.bf.set_entry(0, 'IN PTR foo.bar.mozilla.com')
+        self.assertEqual(self.bf.entry_list[0], 'IN PTR foo.bar.mozilla.com')
+        self.assertEqual(self.bf.entry_list[1], 'IN PTR unused-10-8-0-1.phx.mozilla.com.')
+        self.assertEqual(self.bf.entry_list[2], 'IN PTR unused-10-8-0-2.phx.mozilla.com.')
+        self.assertEqual(len(self.bf.entry_list), 256)
+
+    def test_calculate_previous_hash(self):
+        self.bf.generate_file()
+        self.bf._calculate_previous_hash()
+        self.assertEqual(self.bf.previous_hash, '06766d21490b7c9fca2f13210e76ca8c')
+
+    ## Calculate the hash of the default file before any changes
+    def test_calculate_current_hash(self):
+        self.bf.generate_file()
+        self.bf._calculate_current_hash()
+        self.assertEqual(self.bf.current_hash, '06766d21490b7c9fca2f13210e76ca8c')
+
+    def test_compare_hash_with_updates(self):
+        self.bf.generate_file()
+        self.bf._calculate_current_hash()
+        self.bf._calculate_previous_hash()
+        self.assertEqual(self.bf.current_hash, self.bf.previous_hash)
+        self.bf.set_entry(5, 'IN PTR foo.bar.mozilla.com')
+        self.bf.generate_file()
+        self.bf._calculate_current_hash()
+        self.bf._calculate_previous_hash()
+        self.assertEqual('42ef3fbdc9c82e96ed1f54c4466eae53', self.bf.current_hash)
+        self.assertNotEqual(self.bf.current_hash, self.bf.previous_hash)
+

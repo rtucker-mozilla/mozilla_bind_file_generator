@@ -25,12 +25,16 @@
 # this file under either the MPL or the GPLv2 License.
 
 import datetime, time
+try:
+    import hashlib as md5
+except:
+    import md5
 class BindFile:
     name = "@"
     ttl = 3600
     file_class = "IN"
-    soa = "ns.mozilla.org. sysadmins.mozilla.org."
-    nameservers = ["ns.mozilla.org."]
+    soa = "ns1.mozilla.com. ns2.mozilla.com."
+    nameservers = ["ns1.mozilla.com."]
     serial = "%s%s" % (datetime.date.today().strftime('%Y%m%d'), '00')
     refresh = 10800
     retry = 3600
@@ -40,23 +44,44 @@ class BindFile:
     default_placeholder = "IN PTR unused-10-8-0-%i.phx.mozilla.com."
     entry_list = []
     _entry_output = ""
+    previous_hash = ""
+    current_hash = ""
     ##Merge list will be a list of dictionary objects. The dictionary will be structured as follows {'index':0,'entry':'hostname entry as to overwrite the default'}
     merge_list = []
+    output_file = ""
+    previous_md5_hash = ""
+    current_md5_hash = ""
+    filename = "0.8.10.in-addr.arpa"
     def __init__(self):
         self._header_text = ""
         self._declaration_text = ""
+        self.entry_list = []
+        
 
     def generate_file(self, output=False):
         self._generate_header()
         self._generate_declaration()
         self._build_entry_list()
-        self._merge_lists()
         self._output_entry_list()
+        if self.output_file != "":
+            self.output_file = ""
+        self.output_file += self._header_text
+        self.output_file += self._declaration_text
+        self.output_file += self._declaration_break
+        self.output_file += self._entry_output
 
         if output is True:
-            print self._header_text
-            print self._declaration_text
-            print self._entry_output
+            print self.output_file
+
+    def write_file(self):
+        fh = open(self.filename, 'w')
+        fh.write(self.output_file)
+        fh.close()
+
+    @property
+    def _declaration_break(self):
+        return "\n;PAGEBREAK\n"
+
     def _merge_lists(self):
         if len(self.merge_list) > 0:
             for line in self.merge_list:
@@ -69,6 +94,9 @@ class BindFile:
     def _generate_declaration(self):
         self._declaration_text = "%s %s SOA %s (\n\t%s\n\t%i\n\t%i\n\t%i\n\t%i\n) IN NS %s" % (self.name, self.file_class, self.soa, self.serial, self.refresh, self.retry, self.expire, self.min, "\nIN NS ".join(self.nameservers) )
 
+    def build_entry_list(self):
+        self._build_entry_list()
+
     def _build_entry_list(self):
         for i in range(0,256):
             self.entry_list.append(self.default_placeholder % i)
@@ -76,8 +104,21 @@ class BindFile:
     def _output_entry_list(self):
         counter = 0
         for i in self.entry_list:
-            self._entry_output += "%i %s\n" % (counter, i)
+            self._entry_output += "\n%i %s" % (counter, i)
             counter += 1
+    def set_entry(self, index, value):
+        try:
+            self.entry_list[index] = value
+        except Exception, e:
+            print "Exception is %s" % (e)
+
+    def _calculate_previous_hash(self):
+        calculate_text = open(self.filename).read().split(self._declaration_break)[1].strip()
+        self.previous_hash = md5.md5(calculate_text).hexdigest()
+
+    def _calculate_current_hash(self):
+        calculate_text = self.output_file.split(self._declaration_break)[1].strip()
+        self.current_hash = md5.md5(calculate_text).hexdigest()
 
     @property
     def _date_stamp(self):
